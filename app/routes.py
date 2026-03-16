@@ -1,5 +1,6 @@
 from flask import Blueprint, request,jsonify
 from app.models import db, Shipment
+from datetime import datetime
 
 # A Blueprint organizes our routes into a modular 'package'
 shipment_bp = Blueprint('shipment_bp', __name__)
@@ -55,5 +56,37 @@ def get_shipment(shipment_id):
         "destination": shipment.destination,
         "status": shipment.current_status,
         "created_at": shipment.created_at.isoformat() if shipment.created_at else None,
+        "received_at": shipment.received_at.isoformat() if shipment.received_at else None
+    }), 200
+
+
+@shipment_bp.route('/api/shipments/<string:shipment_id>', methods=['PUT'])
+def update_status(shipment_id):
+    # 1. Find the Shipment
+    shipment = Shipment.query.get(shipment_id)
+    if not shipment:
+        return jsonify({"error": "Shipment not found"}), 404
+    
+    # 2. Get the new status from the request
+    data = request.get_json()
+    new_status = data.get('status')
+
+    if not new_status:
+        return jsonify({"error": "Status is required"}), 400
+    
+    # 3. Update the status
+    shipment.current_status = new_status
+
+    # 4. Special Logic: If delivered, set the timestamp
+    if new_status.lower() == 'delivered':
+        shipment.received_at = datetime.utcnow()
+    
+    # 5. Save to Database
+    db.session.commit()
+
+    return jsonify({
+        "message": "Status updated successfully",
+        "new_status": shipment.current_status,
+
         "received_at": shipment.received_at.isoformat() if shipment.received_at else None
     }), 200
