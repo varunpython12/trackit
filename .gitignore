@@ -3,4 +3,4 @@ venv/
 __pycache__/
 instance/
 .env
-trackit.db
+trackit.dbgit 
