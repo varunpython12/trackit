@@ -35,3 +35,25 @@ def create_shipment():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
+
+@shipment_bp.route('/api/shipments/<string:shipment_id>', methods=['GET'])
+def get_shipment(shipment_id):
+    # 1. Lookup the shipment in the database by its ID
+    # This is like a 'SELECT * FROM shipments WHERE id = shipment_id'
+    shipment = Shipment.query.get(shipment_id)
+
+    # 2. If the shipment doesn't exist, return a 404 error
+    if not shipment:
+        return jsonify({"error": "Shipment not found"}), 404
+    
+    # 3. If found, return the shipment details as JSON
+    return jsonify({
+        "tracking_id": shipment.id,
+        "item_type": shipment.item_type,
+        "origin": shipment.origin,
+        "destination": shipment.destination,
+        "status": shipment.current_status,
+        "created_at": shipment.created_at.isoformat() if shipment.created_at else None,
+        "received_at": shipment.received_at.isoformat() if shipment.received_at else None
+    }), 200

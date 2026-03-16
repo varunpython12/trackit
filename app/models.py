@@ -15,6 +15,9 @@ class Shipment(db.Model):
     current_status = db.Column(db.String(50), default='Pending')
     created_by = db.Column(db.String(100), nullable=False)
     received_by = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    received_at = db.Column(db.DateTime, nullable=True)
+
 
     # This links to the StatusLog table
     history = db.relationship('StatusLog', backref='shipment', lazy=True)
