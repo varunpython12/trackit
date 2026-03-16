@@ -1,5 +1,5 @@
 from flask import Blueprint, request,jsonify
-from app.models import db, Shipment
+from app.models import db, Shipment, StatusLog
 from datetime import datetime
 
 # A Blueprint organizes our routes into a modular 'package'
@@ -25,6 +25,17 @@ def create_shipment():
     # 4. Save to Database
     try:
         db.session.add(new_shipment)
+
+        db.session.flush()
+
+        # 2. Stage the Initial History Entry (The Line Item)
+        # We use the ID from the new_shipment object
+        initial_log = StatusLog(
+            shipment_id=new_shipment.id, 
+            status_reached='Pending'
+        )
+        db.session.add(initial_log)
+
         db.session.commit()
 
         # 5. Return success message and the new ID
@@ -48,6 +59,15 @@ def get_shipment(shipment_id):
     if not shipment:
         return jsonify({"error": "Shipment not found"}), 404
     
+    # Convert the history logs into a list of dictionaries
+    # We loop through shipment.history(the relationship you defined!)
+    history_data = []
+    for log in shipment.history:
+        history_data.append({
+            "status": log.status_reached,
+            "timestamp": log.timestamp.isoformat()
+        })
+    
     # 3. If found, return the shipment details as JSON
     return jsonify({
         "tracking_id": shipment.id,
@@ -56,7 +76,8 @@ def get_shipment(shipment_id):
         "destination": shipment.destination,
         "status": shipment.current_status,
         "created_at": shipment.created_at.isoformat() if shipment.created_at else None,
-        "received_at": shipment.received_at.isoformat() if shipment.received_at else None
+        "received_at": shipment.received_at.isoformat() if shipment.received_at else None,
+        "history": history_data
     }), 200
 
 
@@ -80,12 +101,19 @@ def update_status(shipment_id):
     # 4. Special Logic: If delivered, set the timestamp
     if new_status.lower() == 'delivered':
         shipment.received_at = datetime.utcnow()
+
+    # 4.5 Create the Audit Log entry
+    new_log = StatusLog(
+        shipment_id=shipment.id,
+        status_reached=new_status
+    )
+    db.session.add(new_log)
     
     # 5. Save to Database
     db.session.commit()
 
     return jsonify({
-        "message": "Status updated successfully",
+        "message": "Status updated and logged successfully",
         "new_status": shipment.current_status,
 
         "received_at": shipment.received_at.isoformat() if shipment.received_at else None
